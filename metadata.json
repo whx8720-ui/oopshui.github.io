@@ -1,0 +1,8 @@
+{
+  "name": "PM 架构演进课堂",
+  "description": "专为产品经理设计的技术架构演进互动学习工具，从易到难解释前端、后端、数据库及微服务架构概念。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
