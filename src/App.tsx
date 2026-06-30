@@ -11,9 +11,11 @@ import {
   Code2,
   Database,
   ExternalLink,
+  FileCode2,
   Globe2,
   Layers3,
   Menu,
+  Monitor,
   MousePointer2,
   Network,
   Play,
@@ -24,8 +26,10 @@ import {
   Zap,
 } from 'lucide-react';
 import { stages, type Stage } from './data';
+import { codeExamples, type CodeSection } from './codeExamples';
 
-type Panel = 'story' | 'system' | 'pm';
+type Panel = 'story' | 'system' | 'code';
+type DemoMode = 'preview' | 'code';
 
 const stageIcons = [Globe2, MousePointer2, Database, Code2, ShieldCheck, Cloud, Sparkles];
 
@@ -39,6 +43,8 @@ function App() {
   const [panel, setPanel] = useState<Panel>('story');
   const [menuOpen, setMenuOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [demoMode, setDemoMode] = useState<DemoMode>('preview');
+  const [codeSection, setCodeSection] = useState(codeExamples[activeId].sections[0].id);
   const active = stages[activeId - 1];
 
   const goToStage = (id: number) => {
@@ -60,6 +66,11 @@ function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeId]);
+
+  useEffect(() => {
+    setDemoMode('preview');
+    setCodeSection(codeExamples[activeId].sections[0].id);
   }, [activeId]);
 
   return (
@@ -124,7 +135,7 @@ function App() {
         <section className="learning-workbench">
           <div className="demo-column">
             <div className="section-label"><span>01</span> 看见它</div>
-            <BrowserDemo stage={active} />
+            <BrowserDemo stage={active} mode={demoMode} onModeChange={setDemoMode} activeSection={codeSection} onSectionChange={setCodeSection} />
           </div>
 
           <div className="explain-column">
@@ -133,12 +144,12 @@ function App() {
               <div className="tab-list" role="tablist">
                 <button className={panel === 'story' ? 'is-active' : ''} onClick={() => setPanel('story')}>为什么出现</button>
                 <button className={panel === 'system' ? 'is-active' : ''} onClick={() => setPanel('system')}>怎么工作</button>
-                <button className={panel === 'pm' ? 'is-active' : ''} onClick={() => setPanel('pm')}>PM 怎么问</button>
+                <button className={panel === 'code' ? 'is-active' : ''} onClick={() => setPanel('code')}>代码地图</button>
               </div>
               <div className="tab-content">
                 {panel === 'story' && <StoryPanel stage={active} />}
                 {panel === 'system' && <SystemPanel stage={active} />}
-                {panel === 'pm' && <PmPanel stage={active} />}
+                {panel === 'code' && <CodeMap stage={active} activeSection={codeSection} onInspect={(section) => { setCodeSection(section); setDemoMode('code'); }} />}
               </div>
             </div>
           </div>
@@ -156,7 +167,13 @@ function App() {
   );
 }
 
-function BrowserDemo({ stage }: { stage: Stage }) {
+function BrowserDemo({ stage, mode, onModeChange, activeSection, onSectionChange }: {
+  stage: Stage;
+  mode: DemoMode;
+  onModeChange: (mode: DemoMode) => void;
+  activeSection: string;
+  onSectionChange: (section: string) => void;
+}) {
   const [demoState, setDemoState] = useState(0);
 
   useEffect(() => setDemoState(0), [stage.id]);
@@ -170,7 +187,14 @@ function BrowserDemo({ stage }: { stage: Stage }) {
         <div className="address-bar"><ShieldCheck size={12} /> oopshui.dev/stage/{stage.id}</div>
         <span className="chrome-more">•••</span>
       </div>
-      <div className={`demo-canvas demo-stage-${stage.id}`}>
+      <div className="view-switcher" aria-label="演示查看方式">
+        <span>查看方式</span>
+        <div>
+          <button className={mode === 'preview' ? 'is-active' : ''} onClick={() => onModeChange('preview')}><Monitor size={13} />交互界面</button>
+          <button className={mode === 'code' ? 'is-active' : ''} onClick={() => onModeChange('code')}><FileCode2 size={13} />查看代码</button>
+        </div>
+      </div>
+      {mode === 'preview' ? <div className={`demo-canvas demo-stage-${stage.id}`}>
         <div className="demo-site-header">
           <span className="demo-logo">O/</span>
           <div><i /><i /><i /></div>
@@ -180,7 +204,32 @@ function BrowserDemo({ stage }: { stage: Stage }) {
           <Play size={13} fill="currentColor" /> {actionLabels[stage.id - 1]}
         </button>
         <div className="demo-caption"><span>交互演示</span>{stage.browserLabel}</div>
+      </div> : <CodeViewer stage={stage} activeSection={activeSection} onSectionChange={onSectionChange} />}
+    </div>
+  );
+}
+
+function CodeViewer({ stage, activeSection, onSectionChange }: { stage: Stage; activeSection: string; onSectionChange: (section: string) => void }) {
+  const example = codeExamples[stage.id];
+  const current = example.sections.find((section) => section.id === activeSection) || example.sections[0];
+
+  return (
+    <div className="code-viewer">
+      <div className="code-filebar">
+        <span><FileCode2 size={13} />{example.file}</span>
+        <small>{example.language}</small>
       </div>
+      <div className="code-section-tabs">
+        {example.sections.map((section) => <button key={section.id} className={current.id === section.id ? 'is-active' : ''} onClick={() => onSectionChange(section.id)}>{section.label}</button>)}
+      </div>
+      <div className="code-scroll" aria-label={`${example.file} 代码`}>
+        <pre>{example.lines.map((line, index) => {
+          const lineNumber = index + 1;
+          const highlighted = lineNumber >= current.lines[0] && lineNumber <= current.lines[1];
+          return <span className={`code-line ${highlighted ? 'is-highlighted' : ''}`} key={lineNumber}><i>{lineNumber}</i><code>{line || ' '}</code></span>;
+        })}</pre>
+      </div>
+      <div className="code-explainer"><span>{current.tag}</span><p>{current.description}</p></div>
     </div>
   );
 }
@@ -239,12 +288,21 @@ function FlowIcon({ index }: { index: number }) {
   return <Icon size={18} />;
 }
 
-function PmPanel({ stage }: { stage: Stage }) {
+function CodeMap({ stage, activeSection, onInspect }: { stage: Stage; activeSection: string; onInspect: (section: string) => void }) {
+  const example = codeExamples[stage.id];
   return (
-    <div className="pm-panel">
-      <div className="pm-intro"><span>PM LENS</span><h3>技术不是答案，它改变的是你提问的方式。</h3></div>
-      <ol>{stage.pmQuestions.map((question, index) => <li key={question}><span>{index + 1}</span><p>{question}</p></li>)}</ol>
-      <div className="pm-tip">当研发抛出术语时，先追问：它解决哪一种用户或业务风险？</div>
+    <div className="code-map-panel">
+      <div className="code-map-intro"><span>CODE → UI</span><h3>这份代码如何变成你看到的界面？</h3><p>{example.intro}</p></div>
+      <div className="code-map-list">
+        {example.sections.map((section, index) => (
+          <button key={section.id} className={activeSection === section.id ? 'is-active' : ''} onClick={() => onInspect(section.id)}>
+            <i>{String(index + 1).padStart(2, '0')}</i>
+            <span><small>{section.tag}</small><strong>{section.label}</strong><p>{section.description}</p></span>
+            <ChevronRight size={15} />
+          </button>
+        ))}
+      </div>
+      {stage.id === 1 && <div className="html-distinction"><b>别混淆：</b><code>&lt;head&gt;</code> 是不可见的页面信息，<code>&lt;header&gt;</code> 是可见页头，<code>&lt;thead&gt;</code> 才是表格的表头。</div>}
     </div>
   );
 }
