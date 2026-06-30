@@ -18,4 +18,4 @@ npm run dev
 
 ## 发布
 
-项目为纯前端 Vite 应用，构建产物位于 `dist/`。目标站点为 [oopshui.github.io](https://oopshui.github.io/)。
+项目为纯前端 Vite 应用，构建产物位于 `dist/`。目标站点为 [whx8720-ui.github.io/oopshui.github.io](https://whx8720-ui.github.io/oopshui.github.io/)。
